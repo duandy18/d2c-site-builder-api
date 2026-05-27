@@ -1,6 +1,9 @@
 from pydantic import BaseModel
 
-from app.domains.site_builder.contracts.page_authoring_common import OptionItem
+from app.domains.site_builder.contracts.page_authoring_common import (
+    OptionItem,
+    TemplateBlockSlotDto,
+)
 
 
 class TemplateRegionOption(BaseModel):
@@ -11,6 +14,7 @@ class TemplateRegionOption(BaseModel):
     default_region_name: str
     sort_order: int
     allowed_block_types: list[str]
+    block_slots: list[TemplateBlockSlotDto]
 
 
 class RegionBlockRule(BaseModel):

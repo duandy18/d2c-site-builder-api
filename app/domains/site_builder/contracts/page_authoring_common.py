@@ -11,6 +11,27 @@ class OptionItem(BaseModel):
     description: str
 
 
+class ContentFieldDto(BaseModel):
+    field_key: str
+    label: str
+    field_type: str
+    required: bool
+    placeholder: str | None = None
+    help_text: str | None = None
+
+
+class TemplateBlockSlotDto(BaseModel):
+    slot_code: str
+    label: str
+    description: str
+    block_type: str
+    renderer_key: str
+    required: bool
+    default_block_name: str
+    sort_order: int
+    content_fields: list[ContentFieldDto]
+
+
 class PageAuthoringBlockDto(BaseModel):
     block_code: str
     block_name: str
