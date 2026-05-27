@@ -17,6 +17,7 @@ from app.domains.site_builder.repos.authoring_regions import (
 from app.domains.site_builder.services.page_authoring_capabilities import (
     BlockSlotCapability,
     TemplateRegionCapability,
+    content_field_to_dto,
     get_renderer_key,
     list_template_region_options,
     require_block_slot,
@@ -156,17 +157,7 @@ def _slot_to_form_dto(
         required=slot.required,
         default_block_name=slot.default_block_name,
         sort_order=slot.sort_order,
-        content_fields=[
-            {
-                "field_key": field.field_key,
-                "label": field.label,
-                "field_type": field.field_type,
-                "required": field.required,
-                "placeholder": field.placeholder,
-                "help_text": field.help_text,
-            }
-            for field in slot.content_fields
-        ],
+        content_fields=[content_field_to_dto(field) for field in slot.content_fields],
         block_code=block.block_code if block else None,
         status=block.status if block else None,
         content=dict(block.content_json or {}) if block else {},

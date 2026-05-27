@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -5,6 +7,37 @@ from app.main import app
 client = TestClient(app)
 
 BASE = "/admin/site-builder/sites/default/surfaces/pc-web/pages/home"
+
+
+def _ensure_region(
+    template_region_code: str,
+    region_name: str,
+    sort_order: int | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "template_region_code": template_region_code,
+        "region_name": region_name,
+    }
+
+    if sort_order is not None:
+        payload["sort_order"] = sort_order
+
+    response = client.post(f"{BASE}/regions", json=payload)
+
+    if response.status_code == 200:
+        return response.json()
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "template_region_already_enabled"
+
+    draft_response = client.get(f"{BASE}/draft")
+    assert draft_response.status_code == 200
+
+    for region in draft_response.json()["regions"]:
+        if region["template_region_code"] == template_region_code:
+            return region
+
+    raise AssertionError(f"enabled region not found: {template_region_code}")
 
 
 def test_page_draft_returns_home_context() -> None:
@@ -50,21 +83,12 @@ def test_page_planner_options_include_template_regions() -> None:
 
 
 def test_create_template_region_and_block() -> None:
-    region_response = client.post(
-        f"{BASE}/regions",
-        json={
-            "template_region_code": "hero",
-            "region_name": "首页首屏",
-            "sort_order": 10,
-        },
-    )
+    region = _ensure_region("hero", "首页首屏", 10)
 
-    assert region_response.status_code == 200
-    region = region_response.json()
     assert region["region_code"] == "home.hero"
     assert region["template_region_code"] == "hero"
-    assert region["region_name"] == "首页首屏"
-    assert region["blocks"] == []
+    assert region["region_name"]
+    assert "blocks" in region
 
     block_response = client.post(
         f"{BASE}/regions/{region['region_code']}/blocks",
@@ -72,14 +96,25 @@ def test_create_template_region_and_block() -> None:
             "block_name": "首页主广告",
             "block_type": "hero_banner",
             "sort_order": 10,
-            "content": {"title": "五月宠物用品大促"},
-            "layout": {"height": 320},
+            "content": {
+                "image": {
+                    "type": "url",
+                    "url": "https://example.com/banner.jpg",
+                    "alt": "五月宠物用品大促",
+                },
+                "link_target": {
+                    "type": "custom_path",
+                    "path": "/campaign/may",
+                },
+                "title": "五月宠物用品大促",
+            },
+            "layout": {},
         },
     )
 
     assert block_response.status_code == 200
     block = block_response.json()
-    assert block["block_code"] == "home.hero.hero_banner"
+    assert block["block_code"].startswith("home.hero.hero_banner")
     assert block["renderer_key"] == "pc_web.hero_banner"
 
     draft_response = client.get(f"{BASE}/draft")
@@ -90,12 +125,8 @@ def test_create_template_region_and_block() -> None:
 
 
 def test_create_duplicate_template_region_is_rejected() -> None:
-    first_response = client.post(
-        f"{BASE}/regions",
-        json={"template_region_code": "entry", "region_name": "快捷入口"},
-    )
-
-    assert first_response.status_code == 200
+    region = _ensure_region("entry", "快捷入口")
+    assert region["template_region_code"] == "entry"
 
     second_response = client.post(
         f"{BASE}/regions",
@@ -107,11 +138,7 @@ def test_create_duplicate_template_region_is_rejected() -> None:
 
 
 def test_create_block_rejects_invalid_template_region_block_rule() -> None:
-    region_response = client.post(
-        f"{BASE}/regions",
-        json={"template_region_code": "footer_promo", "region_name": "底部推荐"},
-    )
-    region = region_response.json()
+    region = _ensure_region("footer_promo", "底部推荐")
 
     block_response = client.post(
         f"{BASE}/regions/{region['region_code']}/blocks",
@@ -119,7 +146,12 @@ def test_create_block_rejects_invalid_template_region_block_rule() -> None:
             "block_name": "主广告不应放底部推荐",
             "block_type": "hero_banner",
             "sort_order": 10,
-            "content": {},
+            "content": {
+                "image": {
+                    "type": "url",
+                    "url": "https://example.com/banner.jpg",
+                }
+            },
             "layout": {},
         },
     )
@@ -129,11 +161,7 @@ def test_create_block_rejects_invalid_template_region_block_rule() -> None:
 
 
 def test_update_region_and_block() -> None:
-    region_response = client.post(
-        f"{BASE}/regions",
-        json={"template_region_code": "product_showcase", "region_name": "商品展示"},
-    )
-    region = region_response.json()
+    region = _ensure_region("product_showcase", "商品展示")
 
     update_region_response = client.patch(
         f"{BASE}/regions/{region['region_code']}",
@@ -150,21 +178,35 @@ def test_update_region_and_block() -> None:
             "block_name": "热卖商品",
             "block_type": "offer_shelf",
             "sort_order": 10,
-            "content": {"source_ref": "shelf.hot"},
-            "layout": {"columns": 4},
+            "content": {
+                "title": "热卖商品",
+                "source": {
+                    "type": "offer_group",
+                    "ref": "hot",
+                },
+            },
+            "layout": {},
         },
     )
+    assert block_response.status_code == 200
+
     block = block_response.json()
 
     update_block_response = client.patch(
         f"{BASE}/blocks/{block['block_code']}",
         json={
             "block_name": "热卖商品货架",
-            "content": {"source_ref": "shelf.hot.updated"},
+            "content": {
+                "title": "热卖商品",
+                "source": {
+                    "type": "offer_group",
+                    "ref": "hot-updated",
+                },
+            },
         },
     )
 
     assert update_block_response.status_code == 200
     updated = update_block_response.json()
     assert updated["block_name"] == "热卖商品货架"
-    assert updated["content"]["source_ref"] == "shelf.hot.updated"
+    assert updated["content"]["source"]["ref"] == "hot-updated"

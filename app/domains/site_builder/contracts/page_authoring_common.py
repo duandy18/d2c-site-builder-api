@@ -15,9 +15,13 @@ class ContentFieldDto(BaseModel):
     field_key: str
     label: str
     field_type: str
+    value_type: str
+    editor_type: str
     required: bool
     placeholder: str | None = None
     help_text: str | None = None
+    options: list[OptionItem] = Field(default_factory=list)
+    item_fields: list["ContentFieldDto"] = Field(default_factory=list)
 
 
 class TemplateBlockSlotDto(BaseModel):
@@ -51,3 +55,6 @@ class PageAuthoringRegionDto(BaseModel):
     sort_order: int
     status: str
     blocks: list[PageAuthoringBlockDto] = Field(default_factory=list)
+
+
+ContentFieldDto.model_rebuild()
