@@ -1,0 +1,49 @@
+name: Backend CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  backend-ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: d2c_site_builder
+          POSTGRES_PASSWORD: d2c_site_builder
+          POSTGRES_DB: d2c_site_builder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U d2c_site_builder -d d2c_site_builder"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      D2C_SITE_BUILDER_DATABASE_URL: postgresql+psycopg://d2c_site_builder:d2c_site_builder@127.0.0.1:5432/d2c_site_builder
+      D2C_SITE_BUILDER_TEST_DATABASE_URL: postgresql+psycopg://d2c_site_builder:d2c_site_builder@127.0.0.1:5432/d2c_site_builder
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: make install
+
+      - name: Alembic upgrade
+        run: make upgrade-dev
+
+      - name: Alembic check
+        run: make alembic-check
+
+      - name: Check
+        run: make check

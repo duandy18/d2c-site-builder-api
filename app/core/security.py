@@ -1,0 +1,2 @@
+SITE_BUILDER_CLIENT_HEADER = "X-Site-Builder-Client"
+DEFAULT_SITE_BUILDER_CLIENT = "d2c-site-builder"
