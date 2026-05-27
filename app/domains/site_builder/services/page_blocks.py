@@ -38,6 +38,7 @@ def create_page_block(
 
     renderer_key = require_block_type_allowed(
         context.surface_code,
+        context.template_key,
         region.region_type,
         request.block_type,
     )

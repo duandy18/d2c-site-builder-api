@@ -43,6 +43,7 @@ def build_page_draft(
             region_code=region.region_code,
             region_name=region.region_name,
             region_type=region.region_type,
+            template_region_code=region.region_type,
             sort_order=region.sort_order,
             status=region.status,
             blocks=[
@@ -67,5 +68,7 @@ def build_page_draft(
         surface_code=context.surface_code,
         page_code=context.page_code,
         page_title=context.page_title,
+        template_key=context.template_key,
+        template_name=context.template_name,
         regions=region_dtos,
     )

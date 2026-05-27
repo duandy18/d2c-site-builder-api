@@ -26,6 +26,7 @@ class PageAuthoringRegionDto(BaseModel):
     region_code: str
     region_name: str
     region_type: str
+    template_region_code: str
     sort_order: int
     status: str
     blocks: list[PageAuthoringBlockDto] = Field(default_factory=list)

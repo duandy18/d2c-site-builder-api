@@ -4,6 +4,10 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.domains.site_builder.repos.authoring_pages import get_page
+from app.domains.site_builder.services.page_authoring_capabilities import (
+    get_template_key,
+    get_template_name,
+)
 
 
 @dataclass(frozen=True)
@@ -12,6 +16,8 @@ class PageAuthoringContext:
     surface_code: str
     page_code: str
     page_title: str
+    template_key: str
+    template_name: str
 
 
 def normalize_surface_code(value: str) -> str:
@@ -41,9 +47,13 @@ def require_page_context(
     if not page:
         raise HTTPException(status_code=404, detail="page_not_found")
 
+    template_key = get_template_key(page.surface_code, page.page_code)
+
     return PageAuthoringContext(
         site_code=page.site_code,
         surface_code=page.surface_code,
         page_code=page.page_code,
         page_title=page.page_title,
+        template_key=template_key,
+        template_name=get_template_name(template_key),
     )

@@ -4,9 +4,9 @@ from pydantic import BaseModel
 
 
 class CreateRegionRequest(BaseModel):
-    region_name: str
-    region_type: str
-    sort_order: int = 100
+    template_region_code: str
+    region_name: str | None = None
+    sort_order: int | None = None
 
 
 class UpdateRegionRequest(BaseModel):

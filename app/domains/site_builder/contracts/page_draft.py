@@ -8,4 +8,6 @@ class PageDraftResponse(BaseModel):
     surface_code: str
     page_code: str
     page_title: str
+    template_key: str
+    template_name: str
     regions: list[PageAuthoringRegionDto]
