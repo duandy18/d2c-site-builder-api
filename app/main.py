@@ -8,6 +8,7 @@ from app.api.routes.admin.page_authoring_content import router as page_content_r
 from app.api.routes.admin.page_authoring_draft import router as page_draft_router
 from app.api.routes.admin.page_authoring_planner import router as page_planner_router
 from app.api.routes.admin.page_authoring_regions import router as page_regions_router
+from app.api.routes.admin.template_catalog import router as template_catalog_router
 from app.api.routes.runtime.health import router as runtime_health_router
 from app.core.config import get_settings
 
@@ -25,6 +26,7 @@ app.add_middleware(
 
 app.include_router(admin_health_router)
 app.include_router(admin_navigation_router)
+app.include_router(template_catalog_router)
 app.include_router(page_draft_router)
 app.include_router(page_planner_router)
 app.include_router(page_regions_router)
