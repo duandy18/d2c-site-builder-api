@@ -24,11 +24,11 @@ def test_site_builder_navigation_returns_registered_pages() -> None:
 
     assert "site_builder.pc_web.overview" in child_codes
     assert "site_builder.pc_web.home" in child_codes
-    assert "site_builder.pc_web.category_landing" in child_codes
+    assert "site_builder.pc_web.category_entry" in child_codes
     assert "site_builder.pc_web.product_list" in child_codes
     assert "site_builder.pc_web.product_detail" in child_codes
-    assert "site_builder.pc_web.campaigns" in child_codes
-    assert "site_builder.pc_web.content_pages" in child_codes
+    assert "site_builder.pc_web.campaign" in child_codes
+    assert "site_builder.pc_web.content_page" in child_codes
 
     home = next(
         page for page in pc_web["children"] if page["page_code"] == "site_builder.pc_web.home"
