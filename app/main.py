@@ -1,10 +1,22 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.admin.health import router as admin_health_router
 from app.api.routes.admin.navigation import router as admin_navigation_router
 from app.api.routes.runtime.health import router as runtime_health_router
+from app.core.config import get_settings
 
 app = FastAPI(title="D2C Site Builder API", version="0.1.0")
+
+settings = get_settings()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 app.include_router(admin_health_router)
 app.include_router(admin_navigation_router)
