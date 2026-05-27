@@ -10,6 +10,7 @@ from app.api.routes.admin.page_authoring_planner import router as page_planner_r
 from app.api.routes.admin.page_authoring_regions import router as page_regions_router
 from app.api.routes.admin.template_catalog import router as template_catalog_router
 from app.api.routes.runtime.health import router as runtime_health_router
+from app.api.routes.runtime.page_contract import router as runtime_page_contract_router
 from app.core.config import get_settings
 
 app = FastAPI(title="D2C Site Builder API", version="0.1.0")
@@ -33,6 +34,7 @@ app.include_router(page_regions_router)
 app.include_router(page_blocks_router)
 app.include_router(page_content_router)
 app.include_router(runtime_health_router)
+app.include_router(runtime_page_contract_router)
 
 
 @app.get("/system/health")
