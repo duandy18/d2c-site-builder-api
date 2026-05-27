@@ -11,18 +11,38 @@ This bootstrap stage includes:
 - Alembic baseline
 - Lint/test/openapi route checks
 - GitHub CI
-- Local PostgreSQL helpers through Docker Compose
+- Local database helper commands for the shared local PostgreSQL service
 
 It intentionally does not migrate any `client_presentation` business logic yet.
+
+## Local database
+
+Site Builder uses the shared local PostgreSQL port used by the other independent systems:
+
+    Host: 127.0.0.1
+    Port: 5433
+    Dev database: d2c_site_builder
+    Test database: d2c_site_builder_test
+
+Create or reset local databases:
+
+    make dev-db-create
+    make dev-db-smoke
+
+Reset only when you intentionally want to drop and recreate the Site Builder dev/test databases:
+
+    make dev-db-reset
+
+If your local Postgres admin role is not `postgres:postgres`, override `PSQL_ADMIN_URL`:
+
+    make dev-db-create PSQL_ADMIN_URL="postgresql://<admin>:<password>@127.0.0.1:5433/postgres"
 
 ## Local setup
 
 Primary setup commands:
 
     make install
-    make dev-db-up
-    make dev-db-wait
-    make dev-db-reset
+    make dev-db-create
     make dev-db-smoke
     make check
     make alembic-check
@@ -48,7 +68,7 @@ Short aliases are also available:
 Default local ports:
 
     API: 8035
-    PostgreSQL: 55435
+    PostgreSQL: 5433
 
 ## Core commands
 
