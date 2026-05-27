@@ -79,9 +79,9 @@ revision:
 
 dev-db-create:
 	@echo "creating role/database on shared local Postgres $(D2C_SITE_BUILDER_DB_HOST):$(D2C_SITE_BUILDER_DB_PORT)"
-	@psql -P pager=off "$(PSQL_ADMIN_URL)" -c "DO \$$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$(D2C_SITE_BUILDER_DB_USER)') THEN CREATE ROLE $(D2C_SITE_BUILDER_DB_USER) LOGIN PASSWORD '$(D2C_SITE_BUILDER_DB_PASSWORD)'; END IF; END \$$;"
-	@psql -P pager=off "$(PSQL_ADMIN_URL)" -c "SELECT 'CREATE DATABASE $(D2C_SITE_BUILDER_DB_NAME) OWNER $(D2C_SITE_BUILDER_DB_USER)' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$(D2C_SITE_BUILDER_DB_NAME)')\\gexec"
-	@psql -P pager=off "$(PSQL_ADMIN_URL)" -c "SELECT 'CREATE DATABASE $(D2C_SITE_BUILDER_TEST_DB_NAME) OWNER $(D2C_SITE_BUILDER_DB_USER)' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$(D2C_SITE_BUILDER_TEST_DB_NAME)')\\gexec"
+	@psql -P pager=off "$(PSQL_ADMIN_URL)" -tAc "SELECT 1 FROM pg_roles WHERE rolname = '$(D2C_SITE_BUILDER_DB_USER)'" | grep -q 1 || psql -P pager=off "$(PSQL_ADMIN_URL)" -c "CREATE ROLE $(D2C_SITE_BUILDER_DB_USER) LOGIN PASSWORD '$(D2C_SITE_BUILDER_DB_PASSWORD)';"
+	@psql -P pager=off "$(PSQL_ADMIN_URL)" -tAc "SELECT 1 FROM pg_database WHERE datname = '$(D2C_SITE_BUILDER_DB_NAME)'" | grep -q 1 || psql -P pager=off "$(PSQL_ADMIN_URL)" -c "CREATE DATABASE $(D2C_SITE_BUILDER_DB_NAME) OWNER $(D2C_SITE_BUILDER_DB_USER);"
+	@psql -P pager=off "$(PSQL_ADMIN_URL)" -tAc "SELECT 1 FROM pg_database WHERE datname = '$(D2C_SITE_BUILDER_TEST_DB_NAME)'" | grep -q 1 || psql -P pager=off "$(PSQL_ADMIN_URL)" -c "CREATE DATABASE $(D2C_SITE_BUILDER_TEST_DB_NAME) OWNER $(D2C_SITE_BUILDER_DB_USER);"
 	$(MAKE) upgrade-dev
 	$(MAKE) upgrade-test
 
@@ -90,7 +90,7 @@ dev-db-reset:
 	@psql -P pager=off "$(PSQL_ADMIN_URL)" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname IN ('$(D2C_SITE_BUILDER_DB_NAME)', '$(D2C_SITE_BUILDER_TEST_DB_NAME)') AND pid <> pg_backend_pid();" >/dev/null
 	@psql -P pager=off "$(PSQL_ADMIN_URL)" -c "DROP DATABASE IF EXISTS $(D2C_SITE_BUILDER_DB_NAME);"
 	@psql -P pager=off "$(PSQL_ADMIN_URL)" -c "DROP DATABASE IF EXISTS $(D2C_SITE_BUILDER_TEST_DB_NAME);"
-	@psql -P pager=off "$(PSQL_ADMIN_URL)" -c "DO \$$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$(D2C_SITE_BUILDER_DB_USER)') THEN CREATE ROLE $(D2C_SITE_BUILDER_DB_USER) LOGIN PASSWORD '$(D2C_SITE_BUILDER_DB_PASSWORD)'; END IF; END \$$;"
+	@psql -P pager=off "$(PSQL_ADMIN_URL)" -tAc "SELECT 1 FROM pg_roles WHERE rolname = '$(D2C_SITE_BUILDER_DB_USER)'" | grep -q 1 || psql -P pager=off "$(PSQL_ADMIN_URL)" -c "CREATE ROLE $(D2C_SITE_BUILDER_DB_USER) LOGIN PASSWORD '$(D2C_SITE_BUILDER_DB_PASSWORD)';"
 	@psql -P pager=off "$(PSQL_ADMIN_URL)" -c "CREATE DATABASE $(D2C_SITE_BUILDER_DB_NAME) OWNER $(D2C_SITE_BUILDER_DB_USER);"
 	@psql -P pager=off "$(PSQL_ADMIN_URL)" -c "CREATE DATABASE $(D2C_SITE_BUILDER_TEST_DB_NAME) OWNER $(D2C_SITE_BUILDER_DB_USER);"
 	$(MAKE) upgrade-dev
