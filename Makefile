@@ -8,8 +8,21 @@ PID_FILE ?= /tmp/d2c_site_builder_api_8035.pid
 LOG_FILE ?= /tmp/d2c_site_builder_api_8035.log
 HEALTH_URL ?= http://127.0.0.1:$(PORT)/system/health
 
-D2C_SITE_BUILDER_DEV_DB_DSN ?= postgresql+psycopg://d2c_site_builder:d2c_site_builder@127.0.0.1:5433/d2c_site_builder
-D2C_SITE_BUILDER_DEV_TEST_DB_DSN ?= postgresql+psycopg://d2c_site_builder:d2c_site_builder@127.0.0.1:5433/d2c_site_builder_test
+D2C_SITE_BUILDER_DB_HOST ?= 127.0.0.1
+D2C_SITE_BUILDER_DB_PORT ?= 5433
+D2C_SITE_BUILDER_DB_USER ?= d2c_site_builder
+D2C_SITE_BUILDER_DB_PASSWORD ?= d2c_site_builder
+D2C_SITE_BUILDER_DB_NAME ?= d2c_site_builder
+D2C_SITE_BUILDER_TEST_DB_NAME ?= d2c_site_builder_test
+
+# Override this when your local admin role/password differs.
+PSQL_ADMIN_URL ?= postgresql://wms:wms@$(D2C_SITE_BUILDER_DB_HOST):$(D2C_SITE_BUILDER_DB_PORT)/wms
+
+D2C_SITE_BUILDER_DEV_DB_DSN ?= postgresql+psycopg://$(D2C_SITE_BUILDER_DB_USER):$(D2C_SITE_BUILDER_DB_PASSWORD)@$(D2C_SITE_BUILDER_DB_HOST):$(D2C_SITE_BUILDER_DB_PORT)/$(D2C_SITE_BUILDER_DB_NAME)
+D2C_SITE_BUILDER_DEV_TEST_DB_DSN ?= postgresql+psycopg://$(D2C_SITE_BUILDER_DB_USER):$(D2C_SITE_BUILDER_DB_PASSWORD)@$(D2C_SITE_BUILDER_DB_HOST):$(D2C_SITE_BUILDER_DB_PORT)/$(D2C_SITE_BUILDER_TEST_DB_NAME)
+
+PSQL_DEV_URL ?= postgresql://$(D2C_SITE_BUILDER_DB_USER):$(D2C_SITE_BUILDER_DB_PASSWORD)@$(D2C_SITE_BUILDER_DB_HOST):$(D2C_SITE_BUILDER_DB_PORT)/$(D2C_SITE_BUILDER_DB_NAME)
+PSQL_TEST_URL ?= postgresql://$(D2C_SITE_BUILDER_DB_USER):$(D2C_SITE_BUILDER_DB_PASSWORD)@$(D2C_SITE_BUILDER_DB_HOST):$(D2C_SITE_BUILDER_DB_PORT)/$(D2C_SITE_BUILDER_TEST_DB_NAME)
 
 DEV_ENV := D2C_SITE_BUILDER_ENVIRONMENT="$(D2C_SITE_BUILDER_ENV)" D2C_SITE_BUILDER_DATABASE_URL="$(D2C_SITE_BUILDER_DEV_DB_DSN)" D2C_SITE_BUILDER_TEST_DATABASE_URL="$(D2C_SITE_BUILDER_DEV_TEST_DB_DSN)" PYTHONPATH=.
 TEST_ENV := D2C_SITE_BUILDER_ENVIRONMENT=test D2C_SITE_BUILDER_DATABASE_URL="$(D2C_SITE_BUILDER_DEV_TEST_DB_DSN)" D2C_SITE_BUILDER_TEST_DATABASE_URL="$(D2C_SITE_BUILDER_DEV_TEST_DB_DSN)" PYTHONPATH=.
@@ -18,7 +31,8 @@ TESTS ?= tests
 PYTEST_ARGS ?=
 
 .PHONY: clean-pyc install lint test routes openapi check
-.PHONY: upgrade-dev alembic-check alembic-current alembic-history revision
+.PHONY: upgrade-dev upgrade-test alembic-check alembic-current alembic-history revision
+.PHONY: dev-db-create dev-db-reset dev-db-smoke
 .PHONY: uvicorn uvicorn-up uvicorn-down uvicorn-restart uvicorn-status uvicorn-logs
 .PHONY: up down restart status logs
 
@@ -48,6 +62,9 @@ check: lint test routes openapi
 upgrade-dev:
 	$(DEV_ENV) $(VENV_PYTHON) -m alembic upgrade head
 
+upgrade-test:
+	$(TEST_ENV) $(VENV_PYTHON) -m alembic upgrade head
+
 alembic-check:
 	$(DEV_ENV) $(VENV_PYTHON) -m alembic check
 
@@ -59,6 +76,31 @@ alembic-history:
 
 revision:
 	$(DEV_ENV) $(VENV_PYTHON) -m alembic revision --autogenerate -m "$(MSG)"
+
+dev-db-create:
+	@echo "creating role/database on shared local Postgres $(D2C_SITE_BUILDER_DB_HOST):$(D2C_SITE_BUILDER_DB_PORT)"
+	@psql -P pager=off "$(PSQL_ADMIN_URL)" -tAc "SELECT 1 FROM pg_roles WHERE rolname = '$(D2C_SITE_BUILDER_DB_USER)'" | grep -q 1 || psql -P pager=off "$(PSQL_ADMIN_URL)" -c "CREATE ROLE $(D2C_SITE_BUILDER_DB_USER) LOGIN PASSWORD '$(D2C_SITE_BUILDER_DB_PASSWORD)';"
+	@psql -P pager=off "$(PSQL_ADMIN_URL)" -tAc "SELECT 1 FROM pg_database WHERE datname = '$(D2C_SITE_BUILDER_DB_NAME)'" | grep -q 1 || psql -P pager=off "$(PSQL_ADMIN_URL)" -c "CREATE DATABASE $(D2C_SITE_BUILDER_DB_NAME) OWNER $(D2C_SITE_BUILDER_DB_USER);"
+	@psql -P pager=off "$(PSQL_ADMIN_URL)" -tAc "SELECT 1 FROM pg_database WHERE datname = '$(D2C_SITE_BUILDER_TEST_DB_NAME)'" | grep -q 1 || psql -P pager=off "$(PSQL_ADMIN_URL)" -c "CREATE DATABASE $(D2C_SITE_BUILDER_TEST_DB_NAME) OWNER $(D2C_SITE_BUILDER_DB_USER);"
+	$(MAKE) upgrade-dev
+	$(MAKE) upgrade-test
+
+dev-db-reset:
+	@echo "resetting site builder dev/test databases on shared local Postgres $(D2C_SITE_BUILDER_DB_HOST):$(D2C_SITE_BUILDER_DB_PORT)"
+	@psql -P pager=off "$(PSQL_ADMIN_URL)" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname IN ('$(D2C_SITE_BUILDER_DB_NAME)', '$(D2C_SITE_BUILDER_TEST_DB_NAME)') AND pid <> pg_backend_pid();" >/dev/null
+	@psql -P pager=off "$(PSQL_ADMIN_URL)" -c "DROP DATABASE IF EXISTS $(D2C_SITE_BUILDER_DB_NAME);"
+	@psql -P pager=off "$(PSQL_ADMIN_URL)" -c "DROP DATABASE IF EXISTS $(D2C_SITE_BUILDER_TEST_DB_NAME);"
+	@psql -P pager=off "$(PSQL_ADMIN_URL)" -tAc "SELECT 1 FROM pg_roles WHERE rolname = '$(D2C_SITE_BUILDER_DB_USER)'" | grep -q 1 || psql -P pager=off "$(PSQL_ADMIN_URL)" -c "CREATE ROLE $(D2C_SITE_BUILDER_DB_USER) LOGIN PASSWORD '$(D2C_SITE_BUILDER_DB_PASSWORD)';"
+	@psql -P pager=off "$(PSQL_ADMIN_URL)" -c "CREATE DATABASE $(D2C_SITE_BUILDER_DB_NAME) OWNER $(D2C_SITE_BUILDER_DB_USER);"
+	@psql -P pager=off "$(PSQL_ADMIN_URL)" -c "CREATE DATABASE $(D2C_SITE_BUILDER_TEST_DB_NAME) OWNER $(D2C_SITE_BUILDER_DB_USER);"
+	$(MAKE) upgrade-dev
+	$(MAKE) upgrade-test
+
+dev-db-smoke:
+	@echo "dev db:"
+	@psql -P pager=off "$(PSQL_DEV_URL)" -c "SELECT current_database(), current_user;"
+	@echo "test db:"
+	@psql -P pager=off "$(PSQL_TEST_URL)" -c "SELECT current_database(), current_user;"
 
 uvicorn:
 	PYTHONPATH=. $(VENV_PYTHON) -m uvicorn app.main:app --host $(HOST) --port $(PORT)
