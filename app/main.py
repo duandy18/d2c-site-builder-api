@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes.admin.health import router as admin_health_router
 from app.api.routes.admin.navigation import router as admin_navigation_router
 from app.api.routes.admin.page_authoring_blocks import router as page_blocks_router
+from app.api.routes.admin.page_authoring_content import router as page_content_router
 from app.api.routes.admin.page_authoring_draft import router as page_draft_router
 from app.api.routes.admin.page_authoring_planner import router as page_planner_router
 from app.api.routes.admin.page_authoring_regions import router as page_regions_router
@@ -28,6 +29,7 @@ app.include_router(page_draft_router)
 app.include_router(page_planner_router)
 app.include_router(page_regions_router)
 app.include_router(page_blocks_router)
+app.include_router(page_content_router)
 app.include_router(runtime_health_router)
 
 
