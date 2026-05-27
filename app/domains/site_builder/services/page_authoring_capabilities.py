@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 from fastapi import HTTPException
@@ -20,10 +22,18 @@ PC_HOME_STANDARD_TEMPLATE_NAME = "标准电商首页"
 class ContentFieldCapability:
     field_key: str
     label: str
-    field_type: str
+    value_type: str
+    editor_type: str
     required: bool
     placeholder: str | None = None
     help_text: str | None = None
+    options: tuple[OptionItem, ...] = ()
+    item_fields: tuple[ContentFieldCapability, ...] = ()
+
+    @property
+    def field_type(self) -> str:
+        # Backward-compatible field for current frontend.
+        return self.value_type
 
 
 @dataclass(frozen=True)
@@ -59,6 +69,148 @@ class TemplateRegionCapability:
     @property
     def allowed_block_types(self) -> list[str]:
         return sorted({slot.block_type for slot in self.block_slots})
+
+
+LINK_TARGET_OPTIONS = (
+    OptionItem(value="none", label="不跳转", description="点击后不跳转"),
+    OptionItem(value="custom_path", label="内部路径", description="站内路径，例如 /campaign/may"),
+    OptionItem(value="external_url", label="外部链接", description="完整外部 URL"),
+    OptionItem(value="category", label="分类页", description="跳转到分类或分组页"),
+    OptionItem(value="offer", label="商品页", description="跳转到商品详情页"),
+    OptionItem(value="campaign", label="活动页", description="跳转到活动页"),
+    OptionItem(value="content_page", label="内容页", description="跳转到品牌故事或说明页"),
+    OptionItem(value="search", label="搜索页", description="跳转到搜索结果页"),
+)
+
+OFFER_SOURCE_OPTIONS = (
+    OptionItem(value="offer_group", label="商品组", description="预定义商品组，例如热卖商品"),
+    OptionItem(value="manual_offer_list", label="手动商品列表", description="手动指定商品 ID 列表"),
+    OptionItem(value="campaign_offer_group", label="活动商品组", description="活动页关联商品组"),
+)
+
+IMAGE_ITEM_FIELDS = (
+    ContentFieldCapability(
+        field_key="type",
+        label="图片类型",
+        value_type="select",
+        editor_type="select",
+        required=True,
+        options=(OptionItem(value="url", label="图片 URL", description="通过 URL 引用图片"),),
+    ),
+    ContentFieldCapability(
+        field_key="url",
+        label="图片地址",
+        value_type="url",
+        editor_type="image_url_input",
+        required=True,
+        placeholder="https://example.com/banner.jpg",
+    ),
+    ContentFieldCapability(
+        field_key="alt",
+        label="图片说明",
+        value_type="text",
+        editor_type="text_input",
+        required=False,
+        placeholder="五月宠物用品大促",
+    ),
+)
+
+LINK_TARGET_ITEM_FIELDS = (
+    ContentFieldCapability(
+        field_key="type",
+        label="跳转类型",
+        value_type="select",
+        editor_type="select",
+        required=True,
+        options=LINK_TARGET_OPTIONS,
+    ),
+    ContentFieldCapability(
+        field_key="path",
+        label="内部路径",
+        value_type="text",
+        editor_type="text_input",
+        required=False,
+        placeholder="/campaign/may",
+    ),
+    ContentFieldCapability(
+        field_key="url",
+        label="外部链接",
+        value_type="url",
+        editor_type="url_input",
+        required=False,
+        placeholder="https://example.com",
+    ),
+    ContentFieldCapability(
+        field_key="ref",
+        label="引用编码",
+        value_type="text",
+        editor_type="text_input",
+        required=False,
+        placeholder="cat-litter / offer_001 / campaign_may",
+    ),
+)
+
+ENTRY_LIST_ITEM_FIELDS = (
+    ContentFieldCapability(
+        field_key="title",
+        label="入口标题",
+        value_type="text",
+        editor_type="text_input",
+        required=True,
+        placeholder="猫砂",
+    ),
+    ContentFieldCapability(
+        field_key="subtitle",
+        label="入口说明",
+        value_type="text",
+        editor_type="text_input",
+        required=False,
+        placeholder="除臭结团猫砂",
+    ),
+    ContentFieldCapability(
+        field_key="image",
+        label="入口图片",
+        value_type="image",
+        editor_type="image_editor",
+        required=False,
+        item_fields=IMAGE_ITEM_FIELDS,
+    ),
+    ContentFieldCapability(
+        field_key="link_target",
+        label="跳转目标",
+        value_type="link_target",
+        editor_type="link_target_picker",
+        required=False,
+        item_fields=LINK_TARGET_ITEM_FIELDS,
+    ),
+)
+
+OFFER_SOURCE_ITEM_FIELDS = (
+    ContentFieldCapability(
+        field_key="type",
+        label="来源类型",
+        value_type="select",
+        editor_type="select",
+        required=True,
+        options=OFFER_SOURCE_OPTIONS,
+    ),
+    ContentFieldCapability(
+        field_key="ref",
+        label="来源编码",
+        value_type="text",
+        editor_type="text_input",
+        required=False,
+        placeholder="hot / shelf.hot / campaign_may",
+    ),
+    ContentFieldCapability(
+        field_key="refs",
+        label="手动商品列表",
+        value_type="json",
+        editor_type="json_debug",
+        required=False,
+        placeholder='["offer_001","offer_002"]',
+    ),
+)
 
 
 BLOCK_CAPABILITIES = [
@@ -121,14 +273,16 @@ PC_HOME_STANDARD_REGIONS = [
                     ContentFieldCapability(
                         field_key="title",
                         label="标题",
-                        field_type="text",
+                        value_type="text",
+                        editor_type="text_input",
                         required=True,
                         placeholder="五月宠物用品大促",
                     ),
                     ContentFieldCapability(
                         field_key="subtitle",
                         label="副标题",
-                        field_type="text",
+                        value_type="text",
+                        editor_type="text_input",
                         required=False,
                         placeholder="猫砂猫粮限时优惠",
                     ),
@@ -137,30 +291,33 @@ PC_HOME_STANDARD_REGIONS = [
             BlockSlotCapability(
                 slot_code="hero.banner",
                 label="首屏广告",
-                description="首屏广告图和跳转链接",
+                description="首屏广告图和跳转目标",
                 block_type="hero_banner",
                 required=True,
                 default_block_name="首屏广告",
                 sort_order=20,
                 content_fields=[
                     ContentFieldCapability(
-                        field_key="image_url",
+                        field_key="image",
                         label="广告图片",
-                        field_type="image_url",
+                        value_type="image",
+                        editor_type="image_editor",
                         required=True,
-                        placeholder="https://example.com/banner.jpg",
+                        item_fields=IMAGE_ITEM_FIELDS,
                     ),
                     ContentFieldCapability(
-                        field_key="link_url",
-                        label="跳转链接",
-                        field_type="url",
+                        field_key="link_target",
+                        label="跳转目标",
+                        value_type="link_target",
+                        editor_type="link_target_picker",
                         required=False,
-                        placeholder="/campaign/may",
+                        item_fields=LINK_TARGET_ITEM_FIELDS,
                     ),
                     ContentFieldCapability(
                         field_key="title",
                         label="图片标题",
-                        field_type="text",
+                        value_type="text",
+                        editor_type="text_input",
                         required=False,
                     ),
                 ],
@@ -177,15 +334,18 @@ PC_HOME_STANDARD_REGIONS = [
                     ContentFieldCapability(
                         field_key="text",
                         label="促销文案",
-                        field_type="text",
+                        value_type="text",
+                        editor_type="text_input",
                         required=True,
                         placeholder="满 99 减 20",
                     ),
                     ContentFieldCapability(
-                        field_key="link_url",
-                        label="跳转链接",
-                        field_type="url",
+                        field_key="link_target",
+                        label="跳转目标",
+                        value_type="link_target",
+                        editor_type="link_target_picker",
                         required=False,
+                        item_fields=LINK_TARGET_ITEM_FIELDS,
                     ),
                 ],
             ),
@@ -209,11 +369,12 @@ PC_HOME_STANDARD_REGIONS = [
                 sort_order=10,
                 content_fields=[
                     ContentFieldCapability(
-                        field_key="items",
+                        field_key="entries",
                         label="入口列表",
-                        field_type="json",
+                        value_type="entry_list",
+                        editor_type="entry_list_editor",
                         required=True,
-                        placeholder='[{"title":"猫砂","link_url":"/c/cat-litter"}]',
+                        item_fields=ENTRY_LIST_ITEM_FIELDS,
                     )
                 ],
             )
@@ -239,7 +400,8 @@ PC_HOME_STANDARD_REGIONS = [
                     ContentFieldCapability(
                         field_key="title",
                         label="标题",
-                        field_type="text",
+                        value_type="text",
+                        editor_type="text_input",
                         required=True,
                         placeholder="热卖商品",
                     )
@@ -257,16 +419,18 @@ PC_HOME_STANDARD_REGIONS = [
                     ContentFieldCapability(
                         field_key="title",
                         label="货架标题",
-                        field_type="text",
+                        value_type="text",
+                        editor_type="text_input",
                         required=True,
                         placeholder="热卖商品",
                     ),
                     ContentFieldCapability(
-                        field_key="source_ref",
+                        field_key="source",
                         label="商品来源",
-                        field_type="source_ref",
+                        value_type="offer_source",
+                        editor_type="offer_source_picker",
                         required=True,
-                        placeholder="shelf.hot",
+                        item_fields=OFFER_SOURCE_ITEM_FIELDS,
                     ),
                 ],
             ),
@@ -292,13 +456,15 @@ PC_HOME_STANDARD_REGIONS = [
                     ContentFieldCapability(
                         field_key="title",
                         label="标题",
-                        field_type="text",
+                        value_type="text",
+                        editor_type="text_input",
                         required=False,
                     ),
                     ContentFieldCapability(
                         field_key="body",
                         label="正文",
-                        field_type="textarea",
+                        value_type="textarea",
+                        editor_type="textarea",
                         required=True,
                     ),
                 ],
@@ -325,16 +491,18 @@ PC_HOME_STANDARD_REGIONS = [
                     ContentFieldCapability(
                         field_key="title",
                         label="货架标题",
-                        field_type="text",
+                        value_type="text",
+                        editor_type="text_input",
                         required=True,
                         placeholder="更多好物",
                     ),
                     ContentFieldCapability(
-                        field_key="source_ref",
+                        field_key="source",
                         label="商品来源",
-                        field_type="source_ref",
+                        value_type="offer_source",
+                        editor_type="offer_source_picker",
                         required=True,
-                        placeholder="shelf.recommended",
+                        item_fields=OFFER_SOURCE_ITEM_FIELDS,
                     ),
                 ],
             )
@@ -377,14 +545,18 @@ def get_renderer_key(surface_code: str, block_type: str) -> str:
     raise HTTPException(status_code=422, detail="unsupported_block_renderer")
 
 
-def _field_to_dto(field: ContentFieldCapability) -> ContentFieldDto:
+def content_field_to_dto(field: ContentFieldCapability) -> ContentFieldDto:
     return ContentFieldDto(
         field_key=field.field_key,
         label=field.label,
         field_type=field.field_type,
+        value_type=field.value_type,
+        editor_type=field.editor_type,
         required=field.required,
         placeholder=field.placeholder,
         help_text=field.help_text,
+        options=list(field.options),
+        item_fields=[content_field_to_dto(item) for item in field.item_fields],
     )
 
 
@@ -398,7 +570,7 @@ def _slot_to_dto(surface_code: str, slot: BlockSlotCapability) -> TemplateBlockS
         required=slot.required,
         default_block_name=slot.default_block_name,
         sort_order=slot.sort_order,
-        content_fields=[_field_to_dto(field) for field in slot.content_fields],
+        content_fields=[content_field_to_dto(field) for field in slot.content_fields],
     )
 
 
