@@ -33,9 +33,13 @@ Reset only when you intentionally want to drop and recreate the Site Builder dev
 
     make dev-db-reset
 
-If your local Postgres admin role is not `postgres:postgres`, override `PSQL_ADMIN_URL`:
+By default, local database creation uses the existing local WMS admin role on the shared 5433 PostgreSQL service:
 
-    make dev-db-create PSQL_ADMIN_URL="postgresql://<admin>:<password>@127.0.0.1:5433/postgres"
+    PSQL_ADMIN_URL=postgresql://wms:wms@127.0.0.1:5433/wms
+
+If your local admin role differs, override `PSQL_ADMIN_URL`:
+
+    make dev-db-create PSQL_ADMIN_URL="postgresql://<admin>:<password>@127.0.0.1:5433/<admin_db>"
 
 ## Local setup
 
