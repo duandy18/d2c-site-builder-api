@@ -13,10 +13,10 @@ def to_snake_token(value: str) -> str:
 
 def next_region_code(
     page_code: str,
-    region_type: str,
+    template_region_code: str,
     exists: Callable[[str], bool],
 ) -> str:
-    base_code = f"{to_snake_token(page_code)}.{to_snake_token(region_type)}"
+    base_code = f"{to_snake_token(page_code)}.{to_snake_token(template_region_code)}"
     region_code = base_code
     suffix = 2
 
