@@ -25,6 +25,8 @@ class Settings(BaseModel):
                 [
                     "http://localhost:5299",
                     "http://127.0.0.1:5299",
+                    "http://localhost:5301",
+                    "http://127.0.0.1:5301",
                     "http://192.168.1.3:5299",
                     "http://100.117.111.7:5299",
                 ]
