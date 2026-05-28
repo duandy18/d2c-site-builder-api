@@ -10,6 +10,9 @@ from app.domains.site_builder.models import (  # noqa: F401
     SiteBuilderRegion,
     SiteBuilderSite,
     SiteBuilderSurface,
+    SiteBuilderTemplate,
+    SiteBuilderTemplateRegion,
+    SiteBuilderTemplateSlot,
 )
 
 config = context.config

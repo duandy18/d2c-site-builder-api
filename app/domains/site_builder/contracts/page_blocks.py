@@ -10,12 +10,12 @@ class CreateBlockRequest(BaseModel):
     block_type: str
     sort_order: int = 100
     content: JsonRecord = Field(default_factory=dict)
-    layout: JsonRecord = Field(default_factory=dict)
+    presentation: JsonRecord = Field(default_factory=dict)
 
 
 class UpdateBlockRequest(BaseModel):
     block_name: str | None = None
     sort_order: int | None = None
     content: JsonRecord | None = None
-    layout: JsonRecord | None = None
+    presentation: JsonRecord | None = None
     status: Literal["active", "disabled"] | None = None

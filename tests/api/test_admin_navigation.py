@@ -27,9 +27,7 @@ def test_site_builder_navigation_returns_registered_pages() -> None:
     assert templates["component_key"] == "layout.group"
     assert templates["status"] == "connected"
 
-    template_child_by_code = {
-        page["page_code"]: page for page in templates["children"]
-    }
+    template_child_by_code = {page["page_code"]: page for page in templates["children"]}
 
     assert set(template_child_by_code) == {
         "site_builder.templates.pc_web",
@@ -49,24 +47,35 @@ def test_site_builder_navigation_returns_registered_pages() -> None:
     assert mobile_web_template["component_key"] == "site_builder.template_catalog"
     assert mobile_web_template["status"] == "planned"
 
-    mini_program_template = template_child_by_code[
-        "site_builder.templates.mini_program"
-    ]
+    mini_program_template = template_child_by_code["site_builder.templates.mini_program"]
     assert mini_program_template["title"] == "小程序模板"
     assert mini_program_template["route_path"] == "/templates/mini-program"
     assert mini_program_template["component_key"] == "site_builder.template_catalog"
     assert mini_program_template["status"] == "planned"
 
     pc_web = root_by_code["site_builder.pc_web"]
-    child_codes = {page["page_code"] for page in pc_web["children"]}
+    child_by_code = {page["page_code"]: page for page in pc_web["children"]}
 
-    assert "site_builder.pc_web.home" in child_codes
-    assert "site_builder.pc_web.category_entry" in child_codes
-    assert "site_builder.pc_web.product_list" in child_codes
-    assert "site_builder.pc_web.campaign" in child_codes
-    assert "site_builder.pc_web.content_page" in child_codes
+    assert set(child_by_code) == {
+        "site_builder.pc_web.home",
+        "site_builder.pc_web.product_detail_gallery",
+        "site_builder.pc_web.product_detail_image_matrix",
+    }
 
-    assert "site_builder.pc_web.templates" not in child_codes
-    assert "site_builder.pc_web.overview" not in child_codes
-    assert "site_builder.pc_web.layout" not in child_codes
-    assert "site_builder.pc_web.product_detail" not in child_codes
+    home = child_by_code["site_builder.pc_web.home"]
+    assert home["title"] == "首页搭建"
+    assert home["route_path"] == "/pc-web/home"
+    assert home["component_key"] == "site_builder.pc_web.home"
+    assert home["status"] == "connected"
+
+    gallery = child_by_code["site_builder.pc_web.product_detail_gallery"]
+    assert gallery["title"] == "商品详情页A"
+    assert gallery["route_path"] == "/pc-web/product-detail-gallery"
+    assert gallery["component_key"] == "site_builder.pc_web.template_content"
+    assert gallery["status"] == "connected"
+
+    image_matrix = child_by_code["site_builder.pc_web.product_detail_image_matrix"]
+    assert image_matrix["title"] == "商品详情页B"
+    assert image_matrix["route_path"] == "/pc-web/product-detail-image-matrix"
+    assert image_matrix["component_key"] == "site_builder.pc_web.template_content"
+    assert image_matrix["status"] == "connected"

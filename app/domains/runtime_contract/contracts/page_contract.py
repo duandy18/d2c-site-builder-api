@@ -15,7 +15,7 @@ class RuntimeBlockContractDto(BaseModel):
     status: Literal["active", "empty", "disabled"]
     is_filled: bool
     content: JsonRecord = Field(default_factory=dict)
-    layout: JsonRecord = Field(default_factory=dict)
+    presentation: JsonRecord = Field(default_factory=dict)
 
 
 class RuntimeRegionContractDto(BaseModel):
