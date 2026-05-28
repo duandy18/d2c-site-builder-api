@@ -142,3 +142,89 @@ def test_publish_readiness_404_for_unknown_page() -> None:
 
     assert response.status_code == 404
     assert response.json()["detail"] == "page_not_found"
+
+
+def test_publish_readiness_blocks_product_grid_product_without_offer_code() -> None:
+    page_code = "home"
+    _reset_page_blocks(page_code)
+
+    home_slots = {
+        "header.brand": {"brand_name": "猫用品独立站"},
+        "header.login_link": {"label": "登录", "link_target": "#login"},
+        "product_collection.tabs": {"items": [{"label": "全部"}]},
+        "hero.title": {"kicker": "精选好物", "title": "猫用品精选商城"},
+        "campaign.banner": {"title": "满 99 减 20"},
+        "product_category.nav": {"items": [{"label": "猫粮"}]},
+        "cart.entry": {"link_target": "#cart"},
+    }
+
+    for slot_code, slot_content in home_slots.items():
+        _patch_slot(page_code, slot_code, slot_content)
+
+    _patch_slot(
+        page_code,
+        "product_grid.list",
+        {
+            "source": "manual",
+            "products": [
+                {
+                    "title": "缺少 offer_code 的商品",
+                    "sale_price": "¥39",
+                }
+            ],
+        },
+    )
+
+    response = client.get(f"{BASE}/{page_code}/publish-readiness")
+
+    assert response.status_code == 200
+
+    payload = response.json()
+    assert payload["ready"] is False
+    assert payload["status"] == "blocked"
+    assert any(
+        issue["code"] == "product_grid_product_offer_code_required"
+        and issue["slot_code"] == "product_grid.list"
+        and issue["field_key"] == "products[0].offer_code"
+        for issue in payload["issues"]
+    )
+
+
+def test_publish_readiness_accepts_product_grid_product_with_offer_code() -> None:
+    page_code = "home"
+    _reset_page_blocks(page_code)
+
+    required_slots = {
+        "header.brand": {"brand_name": "猫用品独立站"},
+        "header.login_link": {"label": "登录", "link_target": "#login"},
+        "product_collection.tabs": {"items": [{"label": "全部"}]},
+        "hero.title": {"kicker": "精选好物", "title": "猫用品精选商城"},
+        "campaign.banner": {"title": "满 99 减 20"},
+        "product_category.nav": {"items": [{"label": "猫粮"}]},
+        "cart.entry": {"link_target": "#cart"},
+        "product_grid.list": {
+            "source": "manual",
+            "products": [
+                {
+                    "offer_code": "offer-cat-food-salmon-001",
+                    "title": "三文鱼成猫粮 1kg",
+                    "category": "猫粮",
+                    "sale_price": "¥18.99",
+                }
+            ],
+        },
+    }
+
+    for slot_code, slot_content in required_slots.items():
+        _patch_slot(page_code, slot_code, slot_content)
+
+    response = client.get(f"{BASE}/{page_code}/publish-readiness")
+
+    assert response.status_code == 200
+
+    payload = response.json()
+    error_codes = {issue["code"] for issue in payload["issues"] if issue["level"] == "error"}
+
+    assert "product_grid_product_offer_code_required" not in error_codes
+    assert payload["ready"] is True
+

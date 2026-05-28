@@ -17,6 +17,7 @@ from app.domains.site_builder.contracts.publish_readiness import (
 from app.domains.site_builder.services.page_content import build_page_content_form
 
 IMAGE_MATRIX_SIDE_IMAGES_SLOT = "product.image_matrix.side_images"
+PRODUCT_GRID_SLOT = "product_grid.list"
 IMAGE_MATRIX_MIN_IMAGES = 4
 IMAGE_MATRIX_RECOMMENDED_IMAGES = 6
 
@@ -157,6 +158,30 @@ def _validate_slot(
                         field_key=field_key,
                     )
                 )
+
+
+    if slot.slot_code == PRODUCT_GRID_SLOT:
+        products = slot.content.get("products")
+
+        if isinstance(products, list):
+            for index, product in enumerate(products):
+                offer_code = None
+                if isinstance(product, dict):
+                    raw_offer_code = product.get("offer_code")
+                    if isinstance(raw_offer_code, str):
+                        offer_code = raw_offer_code.strip()
+
+                if not offer_code:
+                    issues.append(
+                        _issue(
+                            level="error",
+                            code="product_grid_product_offer_code_required",
+                            message=f"商品列表第 {index + 1} 个商品缺少 offer_code",
+                            template_region_code=template_region_code,
+                            slot=slot,
+                            field_key=f"products[{index}].offer_code",
+                        )
+                    )
 
     if slot.slot_code == IMAGE_MATRIX_SIDE_IMAGES_SLOT:
         image_count = _count_image_urls(slot.content.get("images"))
