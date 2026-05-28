@@ -254,3 +254,58 @@ class SiteBuilderBlock(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
+
+
+class SiteBuilderPublishedPageSnapshot(Base):
+    __tablename__ = "sb_published_page_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "site_code",
+            "surface_code",
+            "page_code",
+            "publish_version",
+            name="uq_sb_pub_snap_ver",
+        ),
+        Index(
+            "ix_sb_pub_snap_current",
+            "site_code",
+            "surface_code",
+            "page_code",
+            "is_current",
+        ),
+        Index(
+            "ix_sb_pub_snap_page",
+            "site_code",
+            "surface_code",
+            "page_code",
+            "published_at",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    site_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    surface_code: Mapped[str] = mapped_column(String(40), nullable=False)
+    page_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    publish_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    template_key: Mapped[str] = mapped_column(String(120), nullable=False)
+    template_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    contract_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    snapshot_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    readiness_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    published_by: Mapped[str] = mapped_column(
+        String(120),
+        nullable=False,
+        server_default="system",
+    )
+    published_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+    is_current: Mapped[bool] = mapped_column(nullable=False, server_default=text("true"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+

@@ -9,6 +9,7 @@ from app.api.routes.admin.page_authoring_draft import router as page_draft_route
 from app.api.routes.admin.page_authoring_planner import router as page_planner_router
 from app.api.routes.admin.page_authoring_regions import router as page_regions_router
 from app.api.routes.admin.publish_readiness import router as publish_readiness_router
+from app.api.routes.admin.publish_snapshot import router as publish_snapshot_router
 from app.api.routes.admin.template_catalog import router as template_catalog_router
 from app.api.routes.runtime.health import router as runtime_health_router
 from app.api.routes.runtime.page_contract import router as runtime_page_contract_router
@@ -35,6 +36,7 @@ app.include_router(page_regions_router)
 app.include_router(page_blocks_router)
 app.include_router(page_content_router)
 app.include_router(publish_readiness_router)
+app.include_router(publish_snapshot_router)
 app.include_router(runtime_health_router)
 app.include_router(runtime_page_contract_router)
 
