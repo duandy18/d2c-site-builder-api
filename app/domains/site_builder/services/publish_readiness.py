@@ -1,7 +1,10 @@
+from collections.abc import Callable
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.domains.site_builder.contracts.offer_resolve import ResolvedOfferDto
 from app.domains.site_builder.contracts.page_content import (
     PageContentSlotDto,
 )
@@ -14,7 +17,13 @@ from app.domains.site_builder.contracts.publish_readiness import (
     ReadinessLevel,
     ReadinessStatus,
 )
+from app.domains.site_builder.services.offer_resolve import (
+    OfferResolveUnavailableError,
+    resolve_offer_from_d2c,
+)
 from app.domains.site_builder.services.page_content import build_page_content_form
+
+OfferResolver = Callable[[str], ResolvedOfferDto | None]
 
 IMAGE_MATRIX_SIDE_IMAGES_SLOT = "product.image_matrix.side_images"
 PRODUCT_GRID_SLOT = "product_grid.list"
@@ -27,8 +36,10 @@ def build_publish_readiness(
     site_code: str,
     surface_code: str,
     page_code: str,
+    offer_resolver: OfferResolver | None = None,
 ) -> PublishReadinessResponse:
     form = build_page_content_form(session, site_code, surface_code, page_code)
+    resolver = offer_resolver or resolve_offer_from_d2c
 
     all_issues: list[PublishReadinessIssueDto] = []
     region_results: list[PublishReadinessRegionDto] = []
@@ -46,7 +57,7 @@ def build_publish_readiness(
             if slot.required:
                 required_slot_count += 1
 
-            slot_issues = _validate_slot(group.template_region_code, slot)
+            slot_issues = _validate_slot(group.template_region_code, slot, resolver)
             all_issues.extend(slot_issues)
             region_issues.extend(slot_issues)
 
@@ -118,6 +129,7 @@ def build_publish_readiness(
 def _validate_slot(
     template_region_code: str,
     slot: PageContentSlotDto,
+    offer_resolver: OfferResolver,
 ) -> list[PublishReadinessIssueDto]:
     issues: list[PublishReadinessIssueDto] = []
     fields = _schema_fields(slot.content_schema)
@@ -165,23 +177,14 @@ def _validate_slot(
 
         if isinstance(products, list):
             for index, product in enumerate(products):
-                offer_code = None
-                if isinstance(product, dict):
-                    raw_offer_code = product.get("offer_code")
-                    if isinstance(raw_offer_code, str):
-                        offer_code = raw_offer_code.strip()
-
-                if not offer_code:
-                    issues.append(
-                        _issue(
-                            level="error",
-                            code="product_grid_product_offer_code_required",
-                            message=f"商品列表第 {index + 1} 个商品缺少 offer_code",
-                            template_region_code=template_region_code,
-                            slot=slot,
-                            field_key=f"products[{index}].offer_code",
-                        )
-                    )
+                _validate_product_grid_product(
+                    issues,
+                    template_region_code,
+                    slot,
+                    index,
+                    product,
+                    offer_resolver,
+                )
 
     if slot.slot_code == IMAGE_MATRIX_SIDE_IMAGES_SLOT:
         image_count = _count_image_urls(slot.content.get("images"))
@@ -210,6 +213,139 @@ def _validate_slot(
             )
 
     return issues
+
+
+
+def _validate_product_grid_product(
+    issues: list[PublishReadinessIssueDto],
+    template_region_code: str,
+    slot: PageContentSlotDto,
+    index: int,
+    product: Any,
+    offer_resolver: OfferResolver,
+) -> None:
+    offer_code = None
+
+    if isinstance(product, dict):
+        raw_offer_code = product.get("offer_code")
+        if isinstance(raw_offer_code, str):
+            offer_code = raw_offer_code.strip()
+
+    if not offer_code:
+        issues.append(
+            _issue(
+                level="error",
+                code="product_grid_product_offer_code_required",
+                message=f"商品列表第 {index + 1} 个商品缺少 offer_code",
+                template_region_code=template_region_code,
+                slot=slot,
+                field_key=f"products[{index}].offer_code",
+            )
+        )
+        return
+
+    try:
+        resolved_offer = offer_resolver(offer_code)
+    except OfferResolveUnavailableError:
+        issues.append(
+            _issue(
+                level="error",
+                code="product_grid_offer_resolve_unavailable",
+                message=f"商品列表第 {index + 1} 个商品暂时无法解析 offer_code：{offer_code}",
+                template_region_code=template_region_code,
+                slot=slot,
+                field_key=f"products[{index}].offer_code",
+            )
+        )
+        return
+
+    if resolved_offer is None:
+        issues.append(
+            _issue(
+                level="error",
+                code="product_grid_offer_not_found",
+                message=f"商品列表第 {index + 1} 个商品不存在或不可售：{offer_code}",
+                template_region_code=template_region_code,
+                slot=slot,
+                field_key=f"products[{index}].offer_code",
+            )
+        )
+        return
+
+    if isinstance(product, dict):
+        _validate_product_grid_price(
+            issues,
+            template_region_code,
+            slot,
+            index,
+            product,
+            resolved_offer,
+        )
+
+
+def _validate_product_grid_price(
+    issues: list[PublishReadinessIssueDto],
+    template_region_code: str,
+    slot: PageContentSlotDto,
+    index: int,
+    product: dict[str, Any],
+    resolved_offer: ResolvedOfferDto,
+) -> None:
+    raw_sale_price = product.get("sale_price")
+
+    if _is_missing(raw_sale_price):
+        return
+
+    parsed_price_cents = _parse_price_cents(raw_sale_price)
+
+    if parsed_price_cents is None:
+        issues.append(
+            _issue(
+                level="error",
+                code="product_grid_price_invalid",
+                message=f"商品列表第 {index + 1} 个商品展示价格式无法识别",
+                template_region_code=template_region_code,
+                slot=slot,
+                field_key=f"products[{index}].sale_price",
+            )
+        )
+        return
+
+    if parsed_price_cents != resolved_offer.price_cents:
+        issues.append(
+            _issue(
+                level="error",
+                code="product_grid_price_mismatch",
+                message=(
+                    f"商品列表第 {index + 1} 个商品展示价与真实结算价不一致："
+                    f"{raw_sale_price} != {resolved_offer.display_price}"
+                ),
+                template_region_code=template_region_code,
+                slot=slot,
+                field_key=f"products[{index}].sale_price",
+            )
+        )
+
+
+def _parse_price_cents(value: Any) -> int | None:
+    if isinstance(value, int):
+        return value
+
+    if isinstance(value, float):
+        return int(Decimal(str(value)) * Decimal(100))
+
+    if not isinstance(value, str):
+        return None
+
+    normalized = "".join(ch for ch in value.strip() if ch.isdigit() or ch == ".")
+
+    if not normalized:
+        return None
+
+    try:
+        return int(Decimal(normalized) * Decimal(100))
+    except (InvalidOperation, ValueError):
+        return None
 
 
 def _schema_fields(schema: dict[str, Any]) -> dict[str, dict[str, Any]]:

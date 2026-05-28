@@ -32,6 +32,8 @@ class Settings(BaseModel):
         )
     )
     service_name: str = "d2c-site-builder-api"
+    d2c_api_base_url: str = os.getenv("D2C_API_BASE_URL", "http://127.0.0.1:8025")
+    d2c_api_timeout_seconds: float = float(os.getenv("D2C_API_TIMEOUT_SECONDS", "5"))
 
 
 @lru_cache

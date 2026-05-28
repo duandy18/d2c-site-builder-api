@@ -2,7 +2,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete
 
 from app.core.db import get_session
+from app.domains.site_builder.contracts.offer_resolve import ResolvedOfferDto
 from app.domains.site_builder.models.pc_home import SiteBuilderBlock
+from app.domains.site_builder.services import publish_readiness as readiness_service
 from app.main import app
 
 client = TestClient(app)
@@ -33,6 +35,21 @@ def _reset_page_blocks(page_code: str) -> None:
         except StopIteration:
             pass
 
+
+
+def _resolved_offer(offer_code: str, price_cents: int = 1899) -> ResolvedOfferDto:
+    return ResolvedOfferDto(
+        offer_code=offer_code,
+        title="三文鱼成猫粮 1kg",
+        category="猫粮",
+        description="测试商品",
+        price_cents=price_cents,
+        currency="USD",
+        display_price=f"${price_cents / 100:.2f}",
+        image_url=None,
+        status="active",
+        stock_status="in_stock",
+    )
 
 def _patch_slot(page_code: str, slot_code: str, content: dict[str, object]) -> None:
     response = client.patch(
@@ -190,7 +207,8 @@ def test_publish_readiness_blocks_product_grid_product_without_offer_code() -> N
     )
 
 
-def test_publish_readiness_accepts_product_grid_product_with_offer_code() -> None:
+def test_publish_readiness_accepts_product_grid_product_with_offer_code(monkeypatch) -> None:
+    monkeypatch.setattr(readiness_service, "resolve_offer_from_d2c", _resolved_offer)
     page_code = "home"
     _reset_page_blocks(page_code)
 
@@ -227,4 +245,82 @@ def test_publish_readiness_accepts_product_grid_product_with_offer_code() -> Non
 
     assert "product_grid_product_offer_code_required" not in error_codes
     assert payload["ready"] is True
+
+
+def test_publish_readiness_blocks_unknown_product_grid_offer(monkeypatch) -> None:
+    monkeypatch.setattr(readiness_service, "resolve_offer_from_d2c", lambda _offer_code: None)
+    page_code = "home"
+    _reset_page_blocks(page_code)
+
+    required_slots = {
+        "header.brand": {"brand_name": "猫用品独立站"},
+        "header.login_link": {"label": "登录", "link_target": "#login"},
+        "product_collection.tabs": {"items": [{"label": "全部"}]},
+        "hero.title": {"kicker": "精选好物", "title": "猫用品精选商城"},
+        "campaign.banner": {"title": "满 99 减 20"},
+        "product_category.nav": {"items": [{"label": "猫粮"}]},
+        "cart.entry": {"link_target": "#cart"},
+        "product_grid.list": {
+            "source": "manual",
+            "products": [
+                {
+                    "offer_code": "missing-offer",
+                    "title": "不存在的商品",
+                    "sale_price": "$18.99",
+                }
+            ],
+        },
+    }
+
+    for slot_code, slot_content in required_slots.items():
+        _patch_slot(page_code, slot_code, slot_content)
+
+    response = client.get(f"{BASE}/{page_code}/publish-readiness")
+
+    assert response.status_code == 200
+
+    payload = response.json()
+    assert payload["ready"] is False
+    assert any(issue["code"] == "product_grid_offer_not_found" for issue in payload["issues"])
+
+
+def test_publish_readiness_blocks_product_grid_price_mismatch(monkeypatch) -> None:
+    monkeypatch.setattr(
+        readiness_service,
+        "resolve_offer_from_d2c",
+        lambda offer_code: _resolved_offer(offer_code, price_cents=1099),
+    )
+    page_code = "home"
+    _reset_page_blocks(page_code)
+
+    required_slots = {
+        "header.brand": {"brand_name": "猫用品独立站"},
+        "header.login_link": {"label": "登录", "link_target": "#login"},
+        "product_collection.tabs": {"items": [{"label": "全部"}]},
+        "hero.title": {"kicker": "精选好物", "title": "猫用品精选商城"},
+        "campaign.banner": {"title": "满 99 减 20"},
+        "product_category.nav": {"items": [{"label": "猫粮"}]},
+        "cart.entry": {"link_target": "#cart"},
+        "product_grid.list": {
+            "source": "manual",
+            "products": [
+                {
+                    "offer_code": "offer-cat-food-salmon-001",
+                    "title": "三文鱼成猫粮 1kg",
+                    "sale_price": "$18.99",
+                }
+            ],
+        },
+    }
+
+    for slot_code, slot_content in required_slots.items():
+        _patch_slot(page_code, slot_code, slot_content)
+
+    response = client.get(f"{BASE}/{page_code}/publish-readiness")
+
+    assert response.status_code == 200
+
+    payload = response.json()
+    assert payload["ready"] is False
+    assert any(issue["code"] == "product_grid_price_mismatch" for issue in payload["issues"])
 

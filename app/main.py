@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.admin.health import router as admin_health_router
 from app.api.routes.admin.navigation import router as admin_navigation_router
+from app.api.routes.admin.offer_resolve import router as offer_resolve_router
 from app.api.routes.admin.page_authoring_blocks import router as page_blocks_router
 from app.api.routes.admin.page_authoring_content import router as page_content_router
 from app.api.routes.admin.page_authoring_draft import router as page_draft_router
@@ -29,6 +30,7 @@ app.add_middleware(
 
 app.include_router(admin_health_router)
 app.include_router(admin_navigation_router)
+app.include_router(offer_resolve_router)
 app.include_router(template_catalog_router)
 app.include_router(page_draft_router)
 app.include_router(page_planner_router)
