@@ -1,7 +1,7 @@
 import re
 from collections.abc import Callable
 
-_TOKEN_RE = re.compile(r"[^a-zA-Z0-9]+")
+_TOKEN_RE = re.compile(r"[^a-zA-Z0-9.]+")
 
 
 def to_snake_token(value: str) -> str:

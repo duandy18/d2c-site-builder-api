@@ -8,17 +8,18 @@ from app.domains.site_builder.contracts.page_content import (
     SlotContentResponse,
     UpdateSlotContentRequest,
 )
-from app.domains.site_builder.models.pc_home import SiteBuilderBlock, SiteBuilderRegion
+from app.domains.site_builder.models.pc_home import (
+    SiteBuilderBlock,
+    SiteBuilderRegion,
+    SiteBuilderTemplateRegion,
+    SiteBuilderTemplateSlot,
+)
 from app.domains.site_builder.repos.authoring_blocks import add_block, get_block, list_blocks
 from app.domains.site_builder.repos.authoring_regions import (
     add_region,
     list_regions,
 )
 from app.domains.site_builder.services.page_authoring_capabilities import (
-    BlockSlotCapability,
-    TemplateRegionCapability,
-    content_field_to_dto,
-    get_renderer_key,
     list_template_region_options,
     require_block_slot,
 )
@@ -64,8 +65,8 @@ def build_page_content_form(
             ],
         )
         for template_region in list_template_region_options(
+            session,
             context.template_key,
-            context.surface_code,
         )
     ]
 
@@ -89,7 +90,7 @@ def update_slot_content(
     request: UpdateSlotContentRequest,
 ) -> SlotContentResponse:
     context = require_page_context(session, site_code, surface_code, page_code)
-    template_region, slot = require_block_slot(context.template_key, slot_code)
+    template_region, slot = require_block_slot(session, context.template_key, slot_code)
 
     _validate_content(slot, request.content)
 
@@ -112,15 +113,16 @@ def update_slot_content(
             block_code=block_code,
             block_name=slot.default_block_name,
             block_type=slot.block_type,
-            renderer_key=get_renderer_key(context.surface_code, slot.block_type),
+            renderer_key=slot.renderer_key,
             sort_order=slot.sort_order,
             content_json=request.content,
-            layout_json={},
+            presentation_json=request.presentation,
             status="active",
         )
         add_block(session, block)
     else:
         block.content_json = request.content
+        block.presentation_json = request.presentation
         block.status = "active"
 
     session.commit()
@@ -132,20 +134,21 @@ def update_slot_content(
         block_type=block.block_type,
         renderer_key=block.renderer_key,
         content=dict(block.content_json or {}),
+        presentation=dict(block.presentation_json or {}),
         status=block.status,
     )
 
 
 def _block_code_for_slot(
     context: PageAuthoringContext,
-    slot: BlockSlotCapability,
+    slot: SiteBuilderTemplateSlot,
 ) -> str:
     return f"{context.page_code}.{slot.slot_code}"
 
 
 def _slot_to_form_dto(
     context: PageAuthoringContext,
-    slot: BlockSlotCapability,
+    slot: object,
     block: SiteBuilderBlock | None,
 ) -> PageContentSlotDto:
     return PageContentSlotDto(
@@ -153,21 +156,28 @@ def _slot_to_form_dto(
         label=slot.label,
         description=slot.description,
         block_type=slot.block_type,
-        renderer_key=get_renderer_key(context.surface_code, slot.block_type),
+        renderer_key=slot.renderer_key,
         required=slot.required,
         default_block_name=slot.default_block_name,
         sort_order=slot.sort_order,
-        content_fields=[content_field_to_dto(field) for field in slot.content_fields],
+        content_schema=slot.content_schema,
+        presentation_schema=slot.presentation_schema,
+        default_content=slot.default_content,
+        default_presentation=slot.default_presentation,
+        validation=slot.validation,
         block_code=block.block_code if block else None,
         status=block.status if block else None,
-        content=dict(block.content_json or {}) if block else {},
+        content=dict(block.content_json or {}) if block else dict(slot.default_content or {}),
+        presentation=dict(block.presentation_json or {})
+        if block
+        else dict(slot.default_presentation or {}),
     )
 
 
 def _ensure_template_region(
     session: Session,
     context: PageAuthoringContext,
-    template_region: TemplateRegionCapability,
+    template_region: SiteBuilderTemplateRegion,
 ) -> SiteBuilderRegion:
     existing_regions = list_regions(
         session,
@@ -205,23 +215,31 @@ def _ensure_template_region(
 
 
 def _validate_content(
-    slot: BlockSlotCapability,
+    slot: SiteBuilderTemplateSlot,
     content: dict[str, object],
 ) -> None:
-    for field in slot.content_fields:
-        if not field.required:
+    fields = slot.content_schema_json.get("fields")
+
+    if not isinstance(fields, dict):
+        return
+
+    for field_key, field_schema in fields.items():
+        if not isinstance(field_schema, dict):
             continue
 
-        value = content.get(field.field_key)
+        if not field_schema.get("required"):
+            continue
+
+        value = content.get(field_key)
 
         if value is None:
             raise HTTPException(
                 status_code=422,
-                detail=f"missing_required_content_field:{field.field_key}",
+                detail=f"missing_required_content_field:{field_key}",
             )
 
         if isinstance(value, str) and not value.strip():
             raise HTTPException(
                 status_code=422,
-                detail=f"missing_required_content_field:{field.field_key}",
+                detail=f"missing_required_content_field:{field_key}",
             )

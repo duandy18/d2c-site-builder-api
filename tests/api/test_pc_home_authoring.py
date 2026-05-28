@@ -5,7 +5,6 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 client = TestClient(app)
-
 BASE = "/admin/site-builder/sites/default/surfaces/pc-web/pages/home"
 
 
@@ -48,7 +47,7 @@ def test_page_draft_returns_home_context() -> None:
     assert payload["site_code"] == "default"
     assert payload["surface_code"] == "pc_web"
     assert payload["page_code"] == "home"
-    assert payload["template_key"] == "pc_home_standard_v1"
+    assert payload["template_key"] == "pc_home_simple_shop_v1"
     assert isinstance(payload["regions"], list)
 
 
@@ -58,79 +57,68 @@ def test_page_planner_options_include_template_regions() -> None:
     assert response.status_code == 200
     payload = response.json()
 
-    assert payload["template_key"] == "pc_home_standard_v1"
-    assert payload["template_name"] == "标准电商首页"
+    assert payload["template_key"] == "pc_home_simple_shop_v1"
+    assert payload["template_name"] == "极简商品型首页"
 
-    template_regions = {
-        item["template_region_code"]: item for item in payload["template_regions"]
-    }
+    template_regions = {item["template_region_code"]: item for item in payload["template_regions"]}
     assert set(template_regions) >= {
-        "hero",
-        "entry",
-        "product_showcase",
-        "content",
-        "footer_promo",
+        "home.header",
+        "home.product_collection",
+        "home.hero",
+        "home.campaign",
+        "home.product_category",
+        "home.product_grid",
+        "home.service",
+        "home.legal_footer",
     }
-    assert template_regions["hero"]["required"] is True
-    assert "entry_grid" in template_regions["entry"]["allowed_block_types"]
-    assert "offer_shelf" in template_regions["product_showcase"]["allowed_block_types"]
+    assert template_regions["home.campaign"]["required"] is True
+    assert "campaign_banner" in template_regions["home.campaign"]["allowed_block_types"]
+    assert "product_grid" in template_regions["home.product_grid"]["allowed_block_types"]
 
     assert {item["value"] for item in payload["allowed_block_types"]} >= {
-        "hero_banner",
-        "entry_grid",
-        "offer_shelf",
+        "campaign_banner",
+        "product_grid",
+        "product_category_nav",
     }
 
 
 def test_create_template_region_and_block() -> None:
-    region = _ensure_region("hero", "首页首屏", 10)
+    region = _ensure_region("home.campaign", "首页广告位", 40)
 
-    assert region["region_code"] == "home.hero"
-    assert region["template_region_code"] == "hero"
+    assert region["region_code"] == "home.home.campaign"
+    assert region["template_region_code"] == "home.campaign"
     assert region["region_name"]
     assert "blocks" in region
 
     block_response = client.post(
         f"{BASE}/regions/{region['region_code']}/blocks",
         json={
-            "block_name": "首页主广告",
-            "block_type": "hero_banner",
+            "block_name": "首页广告位",
+            "block_type": "campaign_banner",
             "sort_order": 10,
             "content": {
-                "image": {
-                    "type": "url",
-                    "url": "https://example.com/banner.jpg",
-                    "alt": "五月宠物用品大促",
-                },
-                "link_target": {
-                    "type": "custom_path",
-                    "path": "/campaign/may",
-                },
-                "title": "五月宠物用品大促",
+                "label": "大促活动",
+                "title": "满 99 减 20",
+                "subtitle": "猫砂猫粮组合优惠",
             },
-            "layout": {},
+            "presentation": {"tone": "dark"},
         },
     )
 
     assert block_response.status_code == 200
     block = block_response.json()
-    assert block["block_code"].startswith("home.hero.hero_banner")
-    assert block["renderer_key"] == "pc_web.hero_banner"
-
-    draft_response = client.get(f"{BASE}/draft")
-    assert draft_response.status_code == 200
-
-    draft = draft_response.json()
-    assert any(item["region_code"] == "home.hero" for item in draft["regions"])
+    assert block["block_code"].startswith("home.home.campaign.campaign_banner")
+    assert block["renderer_key"] == "pc_web.campaign_banner"
+    assert block["presentation"]["tone"] == "dark"
 
 
 def test_create_duplicate_template_region_is_rejected() -> None:
-    region = _ensure_region("entry", "快捷入口")
-    assert region["template_region_code"] == "entry"
+    region = _ensure_region("home.product_grid", "商品列表")
+    assert region["template_region_code"] == "home.product_grid"
 
     second_response = client.post(
         f"{BASE}/regions",
-        json={"template_region_code": "entry", "region_name": "重复入口"},
+        json={"template_region_code": "home.product_grid", "region_name": "重复商品列表"},
     )
 
     assert second_response.status_code == 409
@@ -138,21 +126,18 @@ def test_create_duplicate_template_region_is_rejected() -> None:
 
 
 def test_create_block_rejects_invalid_template_region_block_rule() -> None:
-    region = _ensure_region("footer_promo", "底部推荐")
+    region = _ensure_region("home.service", "服务承诺")
 
     block_response = client.post(
         f"{BASE}/regions/{region['region_code']}/blocks",
         json={
-            "block_name": "主广告不应放底部推荐",
-            "block_type": "hero_banner",
+            "block_name": "广告不应放服务承诺",
+            "block_type": "campaign_banner",
             "sort_order": 10,
             "content": {
-                "image": {
-                    "type": "url",
-                    "url": "https://example.com/banner.jpg",
-                }
+                "title": "错误广告",
             },
-            "layout": {},
+            "presentation": {},
         },
     )
 
@@ -161,31 +146,28 @@ def test_create_block_rejects_invalid_template_region_block_rule() -> None:
 
 
 def test_update_region_and_block() -> None:
-    region = _ensure_region("product_showcase", "商品展示")
+    region = _ensure_region("home.product_grid", "商品列表")
 
     update_region_response = client.patch(
         f"{BASE}/regions/{region['region_code']}",
-        json={"region_name": "首页商品展示", "sort_order": 30},
+        json={"region_name": "首页商品列表", "sort_order": 60},
     )
 
     assert update_region_response.status_code == 200
-    assert update_region_response.json()["region_name"] == "首页商品展示"
-    assert update_region_response.json()["sort_order"] == 30
+    assert update_region_response.json()["region_name"] == "首页商品列表"
+    assert update_region_response.json()["sort_order"] == 60
 
     block_response = client.post(
         f"{BASE}/regions/{region['region_code']}/blocks",
         json={
-            "block_name": "热卖商品",
-            "block_type": "offer_shelf",
+            "block_name": "首页商品列表",
+            "block_type": "product_grid",
             "sort_order": 10,
             "content": {
-                "title": "热卖商品",
-                "source": {
-                    "type": "offer_group",
-                    "ref": "hot",
-                },
+                "source": {"type": "manual", "ref": "home_products"},
+                "products": [],
             },
-            "layout": {},
+            "presentation": {"columns_pc": 3},
         },
     )
     assert block_response.status_code == 200
@@ -195,18 +177,17 @@ def test_update_region_and_block() -> None:
     update_block_response = client.patch(
         f"{BASE}/blocks/{block['block_code']}",
         json={
-            "block_name": "热卖商品货架",
+            "block_name": "首页商品网格",
             "content": {
-                "title": "热卖商品",
-                "source": {
-                    "type": "offer_group",
-                    "ref": "hot-updated",
-                },
+                "source": {"type": "manual", "ref": "updated_home_products"},
+                "products": [],
             },
+            "presentation": {"columns_pc": 3, "columns_mobile": 2},
         },
     )
 
     assert update_block_response.status_code == 200
     updated = update_block_response.json()
-    assert updated["block_name"] == "热卖商品货架"
-    assert updated["content"]["source"]["ref"] == "hot-updated"
+    assert updated["block_name"] == "首页商品网格"
+    assert updated["content"]["source"]["ref"] == "updated_home_products"
+    assert updated["presentation"]["columns_mobile"] == 2

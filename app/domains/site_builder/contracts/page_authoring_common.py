@@ -11,19 +11,6 @@ class OptionItem(BaseModel):
     description: str
 
 
-class ContentFieldDto(BaseModel):
-    field_key: str
-    label: str
-    field_type: str
-    value_type: str
-    editor_type: str
-    required: bool
-    placeholder: str | None = None
-    help_text: str | None = None
-    options: list[OptionItem] = Field(default_factory=list)
-    item_fields: list["ContentFieldDto"] = Field(default_factory=list)
-
-
 class TemplateBlockSlotDto(BaseModel):
     slot_code: str
     label: str
@@ -33,7 +20,11 @@ class TemplateBlockSlotDto(BaseModel):
     required: bool
     default_block_name: str
     sort_order: int
-    content_fields: list[ContentFieldDto]
+    content_schema: JsonRecord = Field(default_factory=dict)
+    presentation_schema: JsonRecord = Field(default_factory=dict)
+    default_content: JsonRecord = Field(default_factory=dict)
+    default_presentation: JsonRecord = Field(default_factory=dict)
+    validation: JsonRecord = Field(default_factory=dict)
 
 
 class PageAuthoringBlockDto(BaseModel):
@@ -43,7 +34,7 @@ class PageAuthoringBlockDto(BaseModel):
     renderer_key: str
     sort_order: int
     content: JsonRecord
-    layout: JsonRecord
+    presentation: JsonRecord
     status: str
 
 
@@ -55,6 +46,3 @@ class PageAuthoringRegionDto(BaseModel):
     sort_order: int
     status: str
     blocks: list[PageAuthoringBlockDto] = Field(default_factory=list)
-
-
-ContentFieldDto.model_rebuild()

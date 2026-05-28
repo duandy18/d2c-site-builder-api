@@ -1,35 +1,58 @@
+from app.core.db import get_session
 from app.domains.site_builder.services.page_authoring_capabilities import (
-    PC_CAMPAIGN_TEMPLATE_KEY,
-    PC_CATEGORY_ENTRY_TEMPLATE_KEY,
-    PC_CONTENT_PAGE_TEMPLATE_KEY,
-    PC_PRODUCT_LIST_TEMPLATE_KEY,
-    get_template_key,
-    get_template_name,
+    PC_HOME_SIMPLE_SHOP_TEMPLATE_KEY,
+    PC_PRODUCT_DETAIL_GALLERY_TEMPLATE_KEY,
+    PC_PRODUCT_DETAIL_IMAGE_MATRIX_TEMPLATE_KEY,
     require_block_slot,
+    require_template_name,
 )
 
 
-def test_page_codes_resolve_to_template_keys() -> None:
-    assert get_template_key("pc_web", "category_entry") == PC_CATEGORY_ENTRY_TEMPLATE_KEY
-    assert get_template_key("pc_web", "product_list") == PC_PRODUCT_LIST_TEMPLATE_KEY
-    assert get_template_key("pc_web", "campaign") == PC_CAMPAIGN_TEMPLATE_KEY
-    assert get_template_key("pc_web", "content_page") == PC_CONTENT_PAGE_TEMPLATE_KEY
+def _session():
+    dependency = get_session()
+    session = next(dependency)
+    try:
+        yield session
+    finally:
+        try:
+            next(dependency)
+        except StopIteration:
+            pass
 
 
-def test_template_names_are_defined() -> None:
-    assert get_template_name(PC_CATEGORY_ENTRY_TEMPLATE_KEY) == "分类入口页"
-    assert get_template_name(PC_PRODUCT_LIST_TEMPLATE_KEY) == "商品列表页"
-    assert get_template_name(PC_CAMPAIGN_TEMPLATE_KEY) == "活动页"
-    assert get_template_name(PC_CONTENT_PAGE_TEMPLATE_KEY) == "内容页"
+def test_template_names_are_defined_in_db() -> None:
+    session = next(_session())
+
+    assert require_template_name(session, PC_HOME_SIMPLE_SHOP_TEMPLATE_KEY) == "极简商品型首页"
+    assert (
+        require_template_name(session, PC_PRODUCT_DETAIL_GALLERY_TEMPLATE_KEY)
+        == "标准图册商品详情页"
+    )
+    assert (
+        require_template_name(session, PC_PRODUCT_DETAIL_IMAGE_MATRIX_TEMPLATE_KEY)
+        == "多图展示商品详情页"
+    )
 
 
-def test_multi_page_slots_are_registered() -> None:
-    _, category_slot = require_block_slot(PC_CATEGORY_ENTRY_TEMPLATE_KEY, "entry.grid")
-    _, product_slot = require_block_slot(PC_PRODUCT_LIST_TEMPLATE_KEY, "listing.source")
-    _, campaign_slot = require_block_slot(PC_CAMPAIGN_TEMPLATE_KEY, "products.shelf")
-    _, content_slot = require_block_slot(PC_CONTENT_PAGE_TEMPLATE_KEY, "article.body")
+def test_simple_shop_slots_are_registered() -> None:
+    session = next(_session())
 
-    assert category_slot.block_type == "entry_grid"
-    assert product_slot.block_type == "offer_shelf"
-    assert campaign_slot.block_type == "offer_shelf"
-    assert content_slot.block_type == "rich_text"
+    _, product_grid_slot = require_block_slot(
+        session,
+        PC_HOME_SIMPLE_SHOP_TEMPLATE_KEY,
+        "product_grid.list",
+    )
+    _, gallery_slot = require_block_slot(
+        session,
+        PC_PRODUCT_DETAIL_GALLERY_TEMPLATE_KEY,
+        "product.gallery.thumbs",
+    )
+    _, matrix_slot = require_block_slot(
+        session,
+        PC_PRODUCT_DETAIL_IMAGE_MATRIX_TEMPLATE_KEY,
+        "product.image_matrix.side_images",
+    )
+
+    assert product_grid_slot.block_type == "product_grid"
+    assert gallery_slot.block_type == "product_gallery_thumbs"
+    assert matrix_slot.block_type == "product_image_matrix_side_images"

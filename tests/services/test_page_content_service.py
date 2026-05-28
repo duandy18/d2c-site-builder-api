@@ -1,25 +1,49 @@
+from app.core.db import get_session
 from app.domains.site_builder.services.page_authoring_capabilities import (
-    PC_HOME_STANDARD_TEMPLATE_KEY,
+    PC_HOME_SIMPLE_SHOP_TEMPLATE_KEY,
     require_block_slot,
 )
 
 
+def _session():
+    dependency = get_session()
+    session = next(dependency)
+    try:
+        yield session
+    finally:
+        try:
+            next(dependency)
+        except StopIteration:
+            pass
+
+
 def test_template_slots_are_registered() -> None:
-    _, slot = require_block_slot(PC_HOME_STANDARD_TEMPLATE_KEY, "hero.banner")
+    session = next(_session())
 
-    field_keys = {field.field_key for field in slot.content_fields}
+    _, slot = require_block_slot(
+        session,
+        PC_HOME_SIMPLE_SHOP_TEMPLATE_KEY,
+        "campaign.banner",
+    )
 
-    assert slot.block_type == "hero_banner"
-    assert "image" in field_keys
-    assert "link_target" in field_keys
+    fields = slot.content_schema_json.get("fields", {})
+
+    assert slot.block_type == "campaign_banner"
+    assert "title" in fields
+    assert "subtitle" in fields
 
 
-def test_entry_grid_has_entry_list_field() -> None:
-    _, slot = require_block_slot(PC_HOME_STANDARD_TEMPLATE_KEY, "entry.grid")
+def test_product_grid_has_structured_source_and_products_fields() -> None:
+    session = next(_session())
 
-    entries_field = next(field for field in slot.content_fields if field.field_key == "entries")
-    item_field_keys = {field.field_key for field in entries_field.item_fields}
+    _, slot = require_block_slot(
+        session,
+        PC_HOME_SIMPLE_SHOP_TEMPLATE_KEY,
+        "product_grid.list",
+    )
 
-    assert entries_field.value_type == "entry_list"
-    assert entries_field.editor_type == "entry_list_editor"
-    assert {"title", "subtitle", "image", "link_target"} <= item_field_keys
+    fields = slot.content_schema_json.get("fields", {})
+
+    assert slot.block_type == "product_grid"
+    assert "source" in fields
+    assert "products" in fields

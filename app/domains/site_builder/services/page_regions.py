@@ -26,6 +26,7 @@ def create_page_region(
 ) -> PageAuthoringRegionDto:
     context = require_page_context(session, site_code, surface_code, page_code)
     template_region = require_template_region(
+        session,
         context.template_key,
         request.template_region_code,
     )
@@ -38,8 +39,7 @@ def create_page_region(
     )
 
     template_region_already_enabled = any(
-        region.region_type == template_region.template_region_code
-        for region in existing_regions
+        region.region_type == template_region.template_region_code for region in existing_regions
     )
 
     if template_region_already_enabled:

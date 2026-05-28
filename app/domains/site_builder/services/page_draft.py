@@ -54,7 +54,7 @@ def build_page_draft(
                     renderer_key=block.renderer_key,
                     sort_order=block.sort_order,
                     content=dict(block.content_json or {}),
-                    layout=dict(block.layout_json or {}),
+                    presentation=dict(block.presentation_json or {}),
                     status=block.status,
                 )
                 for block in blocks_by_region[region.region_code]

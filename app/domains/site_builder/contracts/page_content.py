@@ -1,9 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from app.domains.site_builder.contracts.page_authoring_common import (
-    ContentFieldDto,
-    JsonRecord,
-)
+from app.domains.site_builder.contracts.page_authoring_common import JsonRecord
 
 
 class PageContentSlotDto(BaseModel):
@@ -15,10 +12,15 @@ class PageContentSlotDto(BaseModel):
     required: bool
     default_block_name: str
     sort_order: int
-    content_fields: list[ContentFieldDto]
+    content_schema: JsonRecord = Field(default_factory=dict)
+    presentation_schema: JsonRecord = Field(default_factory=dict)
+    default_content: JsonRecord = Field(default_factory=dict)
+    default_presentation: JsonRecord = Field(default_factory=dict)
+    validation: JsonRecord = Field(default_factory=dict)
     block_code: str | None = None
     status: str | None = None
-    content: JsonRecord
+    content: JsonRecord = Field(default_factory=dict)
+    presentation: JsonRecord = Field(default_factory=dict)
 
 
 class PageContentRegionGroupDto(BaseModel):
@@ -42,7 +44,8 @@ class PageContentFormResponse(BaseModel):
 
 
 class UpdateSlotContentRequest(BaseModel):
-    content: JsonRecord
+    content: JsonRecord = Field(default_factory=dict)
+    presentation: JsonRecord = Field(default_factory=dict)
 
 
 class SlotContentResponse(BaseModel):
@@ -51,4 +54,5 @@ class SlotContentResponse(BaseModel):
     block_type: str
     renderer_key: str
     content: JsonRecord
+    presentation: JsonRecord
     status: str

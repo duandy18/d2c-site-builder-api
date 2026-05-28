@@ -66,6 +66,6 @@ def _slot_to_runtime(
         sort_order=slot.sort_order,
         status=slot.status if slot.status in {"active", "disabled"} else "empty",
         is_filled=is_filled,
-        content=slot.content if is_filled else {},
-        layout={},
+        content=dict(slot.content or {}),
+        presentation=dict(slot.presentation or {}),
     )

@@ -37,7 +37,7 @@ def create_page_block(
         raise HTTPException(status_code=404, detail="region_not_found")
 
     renderer_key = require_block_type_allowed(
-        context.surface_code,
+        session,
         context.template_key,
         region.region_type,
         request.block_type,
@@ -66,7 +66,7 @@ def create_page_block(
         renderer_key=renderer_key,
         sort_order=request.sort_order,
         content_json=request.content,
-        layout_json=request.layout,
+        presentation_json=request.presentation,
         status="active",
     )
 
@@ -106,8 +106,8 @@ def update_page_block(
     if request.content is not None:
         block.content_json = request.content
 
-    if request.layout is not None:
-        block.layout_json = request.layout
+    if request.presentation is not None:
+        block.presentation_json = request.presentation
 
     if request.status is not None:
         block.status = request.status
@@ -126,6 +126,6 @@ def _block_to_dto(block: SiteBuilderBlock) -> PageAuthoringBlockDto:
         renderer_key=block.renderer_key,
         sort_order=block.sort_order,
         content=dict(block.content_json or {}),
-        layout=dict(block.layout_json or {}),
+        presentation=dict(block.presentation_json or {}),
         status=block.status,
     )

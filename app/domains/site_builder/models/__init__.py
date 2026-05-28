@@ -5,6 +5,9 @@ from app.domains.site_builder.models.pc_home import (
     SiteBuilderRegion,
     SiteBuilderSite,
     SiteBuilderSurface,
+    SiteBuilderTemplate,
+    SiteBuilderTemplateRegion,
+    SiteBuilderTemplateSlot,
 )
 
 __all__ = [
@@ -14,4 +17,7 @@ __all__ = [
     "SiteBuilderRegion",
     "SiteBuilderSite",
     "SiteBuilderSurface",
+    "SiteBuilderTemplate",
+    "SiteBuilderTemplateRegion",
+    "SiteBuilderTemplateSlot",
 ]
