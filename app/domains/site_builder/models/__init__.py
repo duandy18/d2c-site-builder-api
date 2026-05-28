@@ -2,6 +2,7 @@ from app.domains.site_builder.models.admin_pages import SiteBuilderAdminPage
 from app.domains.site_builder.models.pc_home import (
     SiteBuilderBlock,
     SiteBuilderPage,
+    SiteBuilderPublishedPageSnapshot,
     SiteBuilderRegion,
     SiteBuilderSite,
     SiteBuilderSurface,
@@ -14,6 +15,7 @@ __all__ = [
     "SiteBuilderAdminPage",
     "SiteBuilderBlock",
     "SiteBuilderPage",
+    "SiteBuilderPublishedPageSnapshot",
     "SiteBuilderRegion",
     "SiteBuilderSite",
     "SiteBuilderSurface",

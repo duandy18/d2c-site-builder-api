@@ -37,5 +37,5 @@ class RuntimePageContractResponse(BaseModel):
     page_title: str
     template_key: str
     template_name: str
-    status: Literal["draft_preview"] = "draft_preview"
+    status: Literal["draft_preview", "published"] = "draft_preview"
     regions: list[RuntimeRegionContractDto] = Field(default_factory=list)
